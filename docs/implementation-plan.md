@@ -16,6 +16,8 @@
 
 目标：验证浏览器插件作为 OpenClaw client host 的可行性。
 
+状态：0.1.0-alpha.1 已实现本地自测能力，待真实浏览器加载验证。
+
 范围：
 
 - Manifest V3 插件骨架。
@@ -39,6 +41,8 @@
 ## 阶段 2：Gateway 协议适配
 
 目标：插件注册为 OpenClaw node。
+
+状态：待启动。当前 `background.js` 使用 PoC 消息格式，需与 OpenClaw Gateway 真实 node 协议对齐。
 
 范围：
 

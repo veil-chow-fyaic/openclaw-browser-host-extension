@@ -2,16 +2,19 @@
 
 日期：2026-05-13
 
+当前版本：0.1.0-alpha.1
+
 ## P0：插件功能
 
-- 完成 Manifest V3 插件骨架。
-- 配置页支持 Gateway URL / token。
-- Popup 展示连接状态。
-- 实现浏览器通知。
-- 实现当前 tab 元信息读取。
-- 实现 content script 页面摘要。
-- 实现下载记录摘要。
-- 实现浏览器内用户确认弹窗。
+- 完成 Manifest V3 插件骨架。已完成，待浏览器手工验证。
+- 配置页支持 Gateway URL / token。已完成，待浏览器手工验证。
+- Popup 展示连接状态。已完成，待浏览器手工验证。
+- 实现浏览器通知。已完成，待浏览器手工验证。
+- 实现当前 tab 元信息读取。已完成，待浏览器手工验证。
+- 实现 content script 页面摘要。已完成，待浏览器手工验证。
+- 实现下载记录摘要。已完成，待浏览器手工验证。
+- 实现浏览器内用户确认弹窗。已完成，待浏览器手工验证。
+- 按 [browser-test-runbook.md](browser-test-runbook.md) 完成 Chrome/Edge 手工验证。
 
 ## P0：Gateway 连接
 
