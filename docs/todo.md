@@ -11,6 +11,7 @@
 - 实现当前 tab 元信息读取。
 - 实现 content script 页面摘要。
 - 实现下载记录摘要。
+- 实现浏览器内用户确认弹窗。
 
 ## P0：Gateway 连接
 
@@ -19,6 +20,7 @@
 - 增加 WebSocket reconnect。
 - 增加 heartbeat。
 - 增加 invoke result 回传。
+- 当前 Gateway 消息格式仍是 PoC，需要后续对齐真实 OpenClaw browser node 协议。
 
 ## P1：权限和安全
 
@@ -33,6 +35,7 @@
 - Options 文案解释权限边界。
 - 浏览器通知支持点击回传。
 - 提供“分享当前页给 OpenClaw”按钮。
+- 确认弹窗增加更清晰的来源展示和请求摘要。
 
 ## P2：Native Messaging 评估
 

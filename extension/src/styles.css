@@ -15,6 +15,10 @@ body {
   padding: 24px;
 }
 
+.confirm {
+  padding: 22px;
+}
+
 header {
   display: flex;
   align-items: center;
@@ -47,6 +51,19 @@ button {
 
 button:hover {
   background: #eef4fb;
+}
+
+button.primary {
+  border-color: #0a7f42;
+  background: #0a7f42;
+  color: #ffffff;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
 }
 
 pre {

@@ -81,6 +81,16 @@ Extension service worker -> wss://<openclaw-gateway>
 - 需要域名 scope 时再请求具体 host permissions。
 - 当前 PoC 不默认注入全站 content script；用户在 popup 中主动触发页面摘要时才通过 `chrome.scripting.executeScript` 注入。
 
+## 当前协议状态
+
+`background.js` 已提供命令分发层和 PoC 消息格式：
+
+- 输入：`node.invoke`
+- 输出：`node.invoke.result`
+- 事件：`browser.host.event`
+
+这只是浏览器宿主内部 PoC 协议，后续需要和 OpenClaw Gateway 的真实 node 协议对齐。
+
 ## 与 Windows exe 路线的关系
 
 浏览器插件路线是新的主线，但不是完全替代 Windows exe。

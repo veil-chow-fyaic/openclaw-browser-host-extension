@@ -4,13 +4,19 @@ const DEFAULT_CONFIG = {
   nodeName: 'OpenClaw Browser Host',
   autoConnect: false
 };
+const CONFIRM_TIMEOUT_MS = 5 * 60 * 1000;
 
 let socket = null;
+let reconnectEnabled = false;
+let lastInvokeId = '';
+let pendingConfirm = null;
 let status = {
   connected: false,
+  connecting: false,
   lastError: '',
   lastConnectedAt: '',
-  lastDisconnectedAt: ''
+  lastDisconnectedAt: '',
+  lastCommand: ''
 };
 
 chrome.runtime.onInstalled.addListener(async () => {
@@ -22,6 +28,17 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === 'openclaw-reconnect') {
     connectGateway().catch((error) => setStatus({ lastError: error.message }));
   }
+});
+
+chrome.notifications.onClicked.addListener((notificationId) => {
+  sendGatewayMessage({
+    type: 'browser.host.event',
+    event: 'notification.clicked',
+    payload: {
+      notificationId,
+      clickedAt: new Date().toISOString()
+    }
+  });
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -49,6 +66,8 @@ async function handleRuntimeMessage(message) {
       return currentPageSummary();
     case 'downloadsSummary':
       return downloadsSummary(message.payload ?? {});
+    case 'userConfirm':
+      return userConfirm(message.payload ?? {});
     default:
       return { ok: false, error: `Unknown message type: ${message?.type}` };
   }
@@ -60,6 +79,9 @@ async function connectGateway() {
     throw new Error('Gateway URL is not configured');
   }
 
+  reconnectEnabled = true;
+  setStatus({ connecting: true, lastError: '' });
+
   if (socket) {
     socket.close();
     socket = null;
@@ -69,6 +91,7 @@ async function connectGateway() {
   socket.addEventListener('open', () => {
     setStatus({
       connected: true,
+      connecting: false,
       lastError: '',
       lastConnectedAt: new Date().toISOString()
     });
@@ -98,17 +121,21 @@ async function connectGateway() {
   socket.addEventListener('close', () => {
     setStatus({
       connected: false,
+      connecting: false,
       lastDisconnectedAt: new Date().toISOString()
     });
-    chrome.alarms.create('openclaw-reconnect', { delayInMinutes: 1 });
+    if (reconnectEnabled) {
+      chrome.alarms.create('openclaw-reconnect', { delayInMinutes: 1 });
+    }
   });
 
   socket.addEventListener('error', () => {
-    setStatus({ lastError: 'WebSocket error' });
+    setStatus({ connecting: false, lastError: 'WebSocket error' });
   });
 }
 
 function disconnectGateway() {
+  reconnectEnabled = false;
   chrome.alarms.clear('openclaw-reconnect');
   if (socket) {
     socket.close();
@@ -116,6 +143,7 @@ function disconnectGateway() {
   }
   setStatus({
     connected: false,
+    connecting: false,
     lastDisconnectedAt: new Date().toISOString()
   });
 }
@@ -126,30 +154,33 @@ async function handleGatewayMessage(raw) {
     return;
   }
 
-  let result;
-  switch (message.command) {
-    case 'browser.notify':
-      result = await showNotification(message.args ?? {});
-      break;
-    case 'browser.current_tab.info':
-      result = await currentTabInfo();
-      break;
-    case 'browser.current_tab.extract':
-      result = await currentPageSummary();
-      break;
-    case 'browser.downloads.summary':
-      result = await downloadsSummary(message.args ?? {});
-      break;
-    default:
-      result = { ok: false, error: `Unsupported command: ${message.command}` };
-      break;
-  }
+  lastInvokeId = message.id || '';
+  setStatus({ lastCommand: message.command || '' });
+  const result = await executeCommand(message.command, message.args ?? {});
 
   sendGatewayMessage({
     type: 'node.invoke.result',
     id: message.id,
     ...result
   });
+}
+
+async function executeCommand(command, args) {
+  switch (command) {
+    case 'browser.notify':
+    case 'system.notify':
+      return showNotification(args);
+    case 'browser.current_tab.info':
+      return currentTabInfo();
+    case 'browser.current_tab.extract':
+      return currentPageSummary();
+    case 'browser.downloads.summary':
+      return downloadsSummary(args);
+    case 'user.confirm':
+      return userConfirm(args);
+    default:
+      return { ok: false, error: `Unsupported command: ${command}` };
+  }
 }
 
 function sendGatewayMessage(message) {
@@ -173,7 +204,14 @@ async function showNotification(args) {
     title: args.title || 'OpenClaw',
     message: args.body || args.message || ''
   });
-  return { ok: true, payload: { sent: true, notificationId: id } };
+  return {
+    ok: true,
+    payload: {
+      sent: true,
+      notificationId: id,
+      requestId: lastInvokeId || undefined
+    }
+  };
 }
 
 async function currentTabInfo() {
@@ -241,4 +279,57 @@ async function downloadsSummary(args) {
       }))
     }
   };
+}
+
+async function userConfirm(args) {
+  if (pendingConfirm) {
+    return { ok: false, error: 'Another confirmation is already pending' };
+  }
+
+  const title = args.title || 'OpenClaw confirmation';
+  const message = args.message || args.body || 'Allow this action?';
+  pendingConfirm = { title, message, createdAt: new Date().toISOString() };
+
+  try {
+    await chrome.windows.create({
+      url: chrome.runtime.getURL(
+        `src/confirm.html?title=${encodeURIComponent(title)}&message=${encodeURIComponent(message)}`
+      ),
+      type: 'popup',
+      width: 420,
+      height: 260,
+      focused: true
+    });
+
+    const result = await waitForConfirmation();
+    return {
+      ok: true,
+      payload: {
+        confirmed: result.confirmed,
+        action: result.confirmed ? 'confirmed' : 'rejected',
+        respondedAt: new Date().toISOString()
+      }
+    };
+  } finally {
+    pendingConfirm = null;
+  }
+}
+
+function waitForConfirmation() {
+  return new Promise((resolve) => {
+    const timeout = setTimeout(() => {
+      chrome.runtime.onMessage.removeListener(listener);
+      resolve({ confirmed: false });
+    }, CONFIRM_TIMEOUT_MS);
+
+    const listener = (message) => {
+      if (message?.type !== 'confirmResult') {
+        return;
+      }
+      clearTimeout(timeout);
+      chrome.runtime.onMessage.removeListener(listener);
+      resolve({ confirmed: Boolean(message.confirmed) });
+    };
+    chrome.runtime.onMessage.addListener(listener);
+  });
 }

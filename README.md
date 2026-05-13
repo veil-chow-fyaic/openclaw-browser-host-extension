@@ -62,8 +62,9 @@ Edge:
 - Manifest V3。
 - 配置页：Gateway URL / token / node name。
 - Popup：连接状态、测试通知、当前 tab、下载摘要。
-- Background service worker：WebSocket 连接骨架、命令分发。
+- Background service worker：WebSocket 连接骨架、命令分发、重连、确认弹窗。
 - Content script：页面标题、URL、选中文本、正文摘要。
+- 浏览器内 `user.confirm` PoC：弹出确认窗口并回传允许/拒绝。
 
 ## 归档说明
 
