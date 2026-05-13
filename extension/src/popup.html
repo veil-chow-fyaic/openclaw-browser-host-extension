@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>OpenClaw Browser Host</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="popup">
+      <header>
+        <strong>OpenClaw Browser Host</strong>
+        <span id="status" class="status">检查中</span>
+      </header>
+      <section class="actions">
+        <button id="connect">连接</button>
+        <button id="disconnect">断开</button>
+        <button id="notify">测试通知</button>
+        <button id="tab">当前 Tab</button>
+        <button id="summary">页面摘要</button>
+        <button id="downloads">下载摘要</button>
+      </section>
+      <pre id="output"></pre>
+      <a href="options.html" target="_blank">配置</a>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>

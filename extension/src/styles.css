@@ -1,0 +1,86 @@
+body {
+  margin: 0;
+  color: #17202a;
+  background: #f7f9fc;
+  font: 14px/1.45 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.popup {
+  width: 320px;
+  padding: 14px;
+}
+
+.options {
+  max-width: 720px;
+  padding: 24px;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.status {
+  color: #8a4b00;
+}
+
+.status[data-connected="true"] {
+  color: #0a7f42;
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+button {
+  border: 1px solid #c8d2df;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #17202a;
+  cursor: pointer;
+  min-height: 34px;
+}
+
+button:hover {
+  background: #eef4fb;
+}
+
+pre {
+  min-height: 80px;
+  max-height: 260px;
+  overflow: auto;
+  padding: 10px;
+  border-radius: 6px;
+  background: #101820;
+  color: #d8f3dc;
+  white-space: pre-wrap;
+}
+
+label {
+  display: block;
+  margin: 12px 0;
+}
+
+input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 36px;
+  margin-top: 4px;
+  border: 1px solid #c8d2df;
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.checkbox input {
+  width: auto;
+}

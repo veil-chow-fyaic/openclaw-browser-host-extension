@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>OpenClaw Browser Host 配置</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="options">
+      <h1>OpenClaw Browser Host</h1>
+      <label>
+        Gateway URL
+        <input id="gatewayUrl" placeholder="wss://openclaw.example.ts.net">
+      </label>
+      <label>
+        Token
+        <input id="token" type="password" autocomplete="off">
+      </label>
+      <label>
+        Node name
+        <input id="nodeName" placeholder="OpenClaw Browser Host">
+      </label>
+      <label class="checkbox">
+        <input id="autoConnect" type="checkbox">
+        自动连接
+      </label>
+      <button id="save">保存</button>
+      <p id="message"></p>
+    </main>
+    <script src="options.js"></script>
+  </body>
+</html>
