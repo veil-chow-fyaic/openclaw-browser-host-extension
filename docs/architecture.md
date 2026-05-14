@@ -75,7 +75,7 @@ OpenClaw Node Protocol
 └── Browser Extension Node
 ```
 
-浏览器插件本地持久化一个 `hostId`，可映射为 OpenClaw node 的 deviceId/nodeId。服务侧统一按 node 管理授权、能力、在线状态和撤销。
+浏览器插件本地持久化 Ed25519 设备身份。`hostId` 使用 public key 的 SHA-256 hex，与 Windows node 的 deviceId 思路保持一致。服务侧统一按 node 管理授权、能力、在线状态和撤销。
 
 当前插件默认 `node-compatible`，同时保留 `browser-host` 作为备选/fallback，避免服务侧短期还未接入 node 协议时卡死。
 
@@ -99,15 +99,16 @@ OpenClaw Node Protocol
 
 ## 当前协议状态
 
-`background.js` 已提供命令分发层：
+`background.js` 已提供真实 OpenClaw node 协议路径：
 
-- Browser Host 输入：`browser.host.invoke`
-- Browser Host 输出：`browser.host.invoke.result`
-- 兼容输入：`node.invoke`
-- 兼容输出：`node.invoke.result`
-- 事件：`browser.host.event`
+- Gateway challenge：`event/connect.challenge`
+- 设备注册：`req/connect`
+- 注册成功：`res/hello-ok`
+- 远端调用：`event/node.invoke.request` 或 `req/node.invoke`
+- 调用回传：`req/node.invoke.result` 或 `res/<node.invoke id>`
+- 主动事件：`req/node.event`
 
-下一步重点是服务侧让 Gateway 接受 `browser-extension` node 类型，并允许其注册浏览器能力。
+下一步重点是用真实远端 Gateway 联调 `browser-extension` node 的 Origin、token、approve flow 和 allowlist。
 
 ## 与 Windows exe 路线的关系
 

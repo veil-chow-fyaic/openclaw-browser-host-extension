@@ -1,12 +1,16 @@
 const DEFAULT_CONFIG = {
   gatewayUrl: '',
   token: '',
+  authMode: 'gateway-token',
   nodeName: 'OpenClaw Browser Host',
   protocol: 'node-compatible',
   autoConnect: false
 };
 const CONFIRM_TIMEOUT_MS = 5 * 60 * 1000;
 const HEARTBEAT_INTERVAL_MS = 25 * 1000;
+const NODE_CLIENT_ID = 'node-host';
+const NODE_PROTOCOL_VERSION = 3;
+const NODE_CATEGORIES = ['browser', 'user'];
 const CAPABILITIES = [
   'browser.notify',
   'system.notify',
@@ -27,6 +31,8 @@ let status = {
   connecting: false,
   registered: false,
   hostId: '',
+  nodeId: '',
+  pairing: '',
   lastError: '',
   lastConnectedAt: '',
   lastDisconnectedAt: '',
@@ -46,14 +52,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 });
 
 chrome.notifications.onClicked.addListener((notificationId) => {
-  sendGatewayMessage({
-    type: 'browser.host.event',
-    event: 'notification.clicked',
-    payload: {
-      notificationId,
-      clickedAt: new Date().toISOString()
-    }
-  });
+  handleNotificationClick(notificationId);
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -95,6 +94,10 @@ async function connectGateway() {
   if (!config.gatewayUrl) {
     throw new Error('Gateway URL is not configured');
   }
+  const storedAuth = await chrome.storage.local.get(['browserDeviceToken']);
+  if (config.protocol !== 'browser-host' && !config.token && !storedAuth.browserDeviceToken) {
+    throw new Error('Token is required until this browser node is paired');
+  }
 
   reconnectEnabled = true;
   setStatus({ connecting: true, lastError: '' });
@@ -115,8 +118,10 @@ async function connectGateway() {
       lastError: '',
       lastConnectedAt: new Date().toISOString()
     });
-    sendRegisterMessage(config, identity);
-    startHeartbeat(config, identity);
+    if (config.protocol === 'browser-host') {
+      sendBrowserHostRegisterMessage(config, identity);
+      startHeartbeat(config, identity);
+    }
   });
 
   socket.addEventListener('message', (event) => {
@@ -164,6 +169,12 @@ function disconnectGateway() {
 
 async function handleGatewayMessage(raw) {
   const message = JSON.parse(raw);
+  const config = await chrome.storage.local.get(Object.keys(DEFAULT_CONFIG));
+
+  if (config.protocol !== 'browser-host' && await handleOpenClawNodeMessage(message, config)) {
+    return;
+  }
+
   if (message.type === 'browser.host.registered' || message.type === 'node.registered') {
     setStatus({ registered: true, lastError: '' });
     return;
@@ -209,14 +220,16 @@ async function ensureHostIdentity() {
   }
 
   const stored = await chrome.storage.local.get(['browserHostIdentity']);
-  if (stored.browserHostIdentity?.hostId) {
+  if (stored.browserHostIdentity?.privateKeyJwk && stored.browserHostIdentity?.publicKeyBase64Url) {
     hostIdentity = stored.browserHostIdentity;
     setStatus({ hostId: hostIdentity.hostId });
     return hostIdentity;
   }
 
+  const generated = await generateDeviceIdentity();
   hostIdentity = {
-    hostId: crypto.randomUUID(),
+    ...generated,
+    legacyHostId: stored.browserHostIdentity?.hostId || undefined,
     createdAt: new Date().toISOString(),
     kind: 'browser-extension'
   };
@@ -225,7 +238,21 @@ async function ensureHostIdentity() {
   return hostIdentity;
 }
 
-function sendRegisterMessage(config, identity) {
+async function generateDeviceIdentity() {
+  const keyPair = await crypto.subtle.generateKey({ name: 'Ed25519' }, true, ['sign', 'verify']);
+  const publicKeyRaw = await crypto.subtle.exportKey('raw', keyPair.publicKey);
+  const privateKeyJwk = await crypto.subtle.exportKey('jwk', keyPair.privateKey);
+  const publicKeyHash = await crypto.subtle.digest('SHA-256', publicKeyRaw);
+
+  return {
+    hostId: bytesToHex(publicKeyHash),
+    publicKeyBase64Url: base64UrlEncode(publicKeyRaw),
+    privateKeyJwk,
+    algorithm: 'Ed25519'
+  };
+}
+
+function sendBrowserHostRegisterMessage(config, identity) {
   const payload = {
     type: 'browser.host.register',
     protocolVersion: 1,
@@ -237,15 +264,6 @@ function sendRegisterMessage(config, identity) {
     userAgent: navigator.userAgent,
     connectedAt: new Date().toISOString()
   };
-
-  if (config.protocol === 'node-compatible') {
-    payload.type = 'node.register';
-    payload.nodeName = payload.hostName;
-    payload.nodeType = 'browser-extension';
-    payload.deviceId = identity.hostId;
-    payload.deviceName = payload.hostName;
-    payload.platform = 'browser';
-  }
 
   sendGatewayMessage(payload);
 }
@@ -292,6 +310,271 @@ async function executeCommand(command, args) {
   }
 }
 
+async function handleNotificationClick(notificationId) {
+  const payload = {
+    notificationId,
+    clickedAt: new Date().toISOString()
+  };
+
+  try {
+    if (await sendNodeEvent('notification.clicked', payload)) {
+      return;
+    }
+  } catch {
+    // Fall through to the Browser Host fallback wire shape.
+  }
+
+  sendGatewayMessage({
+    type: 'browser.host.event',
+    event: 'notification.clicked',
+    payload
+  });
+}
+
+async function handleOpenClawNodeMessage(message, config) {
+  if (message.type === 'event') {
+    const eventType = message.event || '';
+    if (eventType === 'connect.challenge') {
+      await sendOpenClawNodeConnect(config, message.payload || {});
+      return true;
+    }
+
+    if (eventType === 'node.invoke.request') {
+      await handleNodeInvokeEvent(message.payload || {});
+      return true;
+    }
+
+    if (eventType === 'node.pair.requested' || eventType === 'device.pair.requested') {
+      setStatus({ pairing: 'pending', lastError: 'Pairing approval required' });
+      return true;
+    }
+
+    if (eventType === 'node.pair.resolved' || eventType === 'device.pair.resolved') {
+      const decision = message.payload?.decision || 'unknown';
+      setStatus({ pairing: decision, lastError: decision === 'approved' ? '' : status.lastError });
+      if (decision === 'approved' && socket) {
+        socket.close();
+      }
+      return true;
+    }
+
+    return false;
+  }
+
+  if (message.type === 'res') {
+    handleNodeResponse(message);
+    return true;
+  }
+
+  if (message.type === 'req') {
+    await handleNodeRequest(message);
+    return true;
+  }
+
+  return false;
+}
+
+async function sendOpenClawNodeConnect(config, challengePayload) {
+  const identity = await ensureHostIdentity();
+  const stored = await chrome.storage.local.get(['browserDeviceToken']);
+  const auth = buildNodeAuth(config, stored.browserDeviceToken);
+  const nonce = challengePayload.nonce || '';
+  const signedAt = Date.now();
+  const signature = await signNodeConnectPayload(identity, nonce, signedAt, auth.tokenForSignature);
+
+  sendGatewayMessage({
+    type: 'req',
+    id: crypto.randomUUID(),
+    method: 'connect',
+    params: {
+      minProtocol: NODE_PROTOCOL_VERSION,
+      maxProtocol: NODE_PROTOCOL_VERSION,
+      client: {
+        id: NODE_CLIENT_ID,
+        version: chrome.runtime.getManifest().version_name || chrome.runtime.getManifest().version,
+        platform: 'browser',
+        mode: 'node',
+        displayName: config.nodeName || 'OpenClaw Browser Host'
+      },
+      role: 'node',
+      scopes: [],
+      caps: NODE_CATEGORIES,
+      commands: CAPABILITIES,
+      permissions: {},
+      auth: auth.payload,
+      locale: navigator.language || 'zh-CN',
+      userAgent: navigator.userAgent,
+      device: {
+        id: identity.hostId,
+        publicKey: identity.publicKeyBase64Url,
+        signature,
+        signedAt,
+        nonce
+      }
+    }
+  });
+}
+
+function buildNodeAuth(config, deviceToken) {
+  if (deviceToken) {
+    return {
+      payload: { token: deviceToken },
+      tokenForSignature: deviceToken
+    };
+  }
+
+  if (config.authMode === 'bootstrap-token') {
+    return {
+      payload: { bootstrapToken: config.token || '' },
+      tokenForSignature: config.token || ''
+    };
+  }
+
+  return {
+    payload: { token: config.token || '' },
+    tokenForSignature: config.token || ''
+  };
+}
+
+async function signNodeConnectPayload(identity, nonce, signedAt, authToken) {
+  const privateKey = await crypto.subtle.importKey(
+    'jwk',
+    identity.privateKeyJwk,
+    { name: 'Ed25519' },
+    false,
+    ['sign']
+  );
+  const payload = `v2|${identity.hostId}|${NODE_CLIENT_ID}|node|node||${signedAt}|${authToken || ''}|${nonce || ''}`;
+  const signature = await crypto.subtle.sign(
+    { name: 'Ed25519' },
+    privateKey,
+    new TextEncoder().encode(payload)
+  );
+  return base64UrlEncode(signature);
+}
+
+function handleNodeResponse(message) {
+  if (message.ok === false) {
+    const code = message.error?.code || '';
+    const errorMessage = message.error?.message || 'Node request failed';
+    if (code === 'NOT_PAIRED') {
+      setStatus({
+        pairing: 'pending',
+        lastError: `Pairing required: ${message.error?.details?.requestId || 'pending approval'}`
+      });
+      reconnectEnabled = false;
+      return;
+    }
+    setStatus({ lastError: errorMessage });
+    return;
+  }
+
+  const payload = message.payload || {};
+  if (payload.type !== 'hello-ok') {
+    return;
+  }
+
+  const patch = {
+    registered: true,
+    pairing: 'paired',
+    nodeId: payload.nodeId || status.hostId,
+    lastError: ''
+  };
+
+  const deviceToken = payload.auth?.deviceToken;
+  if (deviceToken) {
+    chrome.storage.local.set({ browserDeviceToken: deviceToken });
+  }
+
+  setStatus(patch);
+}
+
+async function handleNodeRequest(message) {
+  if (message.method === 'ping') {
+    sendGatewayMessage({
+      type: 'res',
+      id: message.id,
+      ok: true,
+      payload: { pong: true }
+    });
+    return;
+  }
+
+  if (message.method === 'node.invoke') {
+    const command = message.params?.command || '';
+    const args = message.params?.args || {};
+    lastInvokeId = message.id || '';
+    setStatus({ lastCommand: command });
+    const result = await executeCommand(command, args);
+    sendGatewayMessage({
+      type: 'res',
+      id: message.id,
+      ok: result.ok,
+      payload: result.payload,
+      error: result.ok ? undefined : { message: result.error || 'Command failed' }
+    });
+    return;
+  }
+
+  sendGatewayMessage({
+    type: 'res',
+    id: message.id,
+    ok: false,
+    error: { message: `Unknown method: ${message.method}` }
+  });
+}
+
+async function handleNodeInvokeEvent(payload) {
+  const requestId = payload.requestId || payload.id || '';
+  const command = payload.command || '';
+  let args = payload.args || {};
+
+  if (!payload.args && typeof payload.paramsJSON === 'string') {
+    try {
+      args = JSON.parse(payload.paramsJSON);
+    } catch {
+      args = {};
+    }
+  }
+
+  if (!requestId || !command) {
+    return;
+  }
+
+  lastInvokeId = requestId;
+  setStatus({ lastCommand: command });
+  const result = await executeCommand(command, args);
+
+  sendGatewayMessage({
+    type: 'req',
+    id: crypto.randomUUID(),
+    method: 'node.invoke.result',
+    params: {
+      id: requestId,
+      nodeId: status.nodeId || status.hostId,
+      ok: result.ok,
+      payload: result.payload,
+      error: result.ok ? undefined : { message: result.error || 'Command failed' }
+    }
+  });
+}
+
+async function sendNodeEvent(eventName, payload) {
+  const config = await chrome.storage.local.get(Object.keys(DEFAULT_CONFIG));
+  if (config.protocol !== 'node-compatible') {
+    return false;
+  }
+  return sendGatewayMessage({
+    type: 'req',
+    id: crypto.randomUUID(),
+    method: 'node.event',
+    params: {
+      event: eventName,
+      payloadJSON: JSON.stringify(payload || {})
+    }
+  });
+}
+
 function sendGatewayMessage(message) {
   if (!socket || socket.readyState !== WebSocket.OPEN) {
     return false;
@@ -303,6 +586,21 @@ function sendGatewayMessage(message) {
 function setStatus(patch) {
   status = { ...status, ...patch };
   chrome.storage.local.set({ connectionStatus: status });
+}
+
+function base64UrlEncode(buffer) {
+  const bytes = buffer instanceof ArrayBuffer ? new Uint8Array(buffer) : new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+  let binary = '';
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+  return btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
+}
+
+function bytesToHex(buffer) {
+  return [...new Uint8Array(buffer)]
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('');
 }
 
 async function showNotification(args) {

@@ -4,7 +4,7 @@ OpenClaw Browser Host Extension 是新的浏览器插件主线，用于替代或
 
 目标是在用户安装 Chrome / Edge 插件后，让 OpenClaw 能安全地触达用户常用浏览器上下文，包括通知、当前页面信息、用户确认、下载记录摘要和后续浏览器页面内容读取。
 
-当前版本：`0.1.0-alpha.5`。
+当前版本：`0.1.0-alpha.6`。
 
 ## 当前结论
 
@@ -72,14 +72,14 @@ Edge:
 当前插件骨架包含：
 
 - Manifest V3。
-- 配置页：Gateway URL / token / node name。
+- 配置页：Gateway URL / token / token mode / node name。
 - Popup：连接状态、测试通知、当前 tab、下载摘要。
 - Background service worker：WebSocket 连接骨架、命令分发、重连、确认弹窗。
 - Content script：页面标题、URL、选中文本、正文摘要。
 - 浏览器内 `user.confirm` PoC：弹出确认窗口并回传允许/拒绝。
-- OpenClaw browser-extension node 客户端草案：稳定 `hostId`、node-compatible `register`、`heartbeat`、`invoke/result`、`event`。
+- OpenClaw browser-extension node 客户端：Ed25519 设备身份、`connect.challenge`、签名 `connect`、`hello-ok`、deviceToken 持久化、`node.invoke.request` / `node.invoke.result`、`node.event`。
 - Gateway 协议对齐记录见 [Gateway 协议对齐记录](docs/gateway-protocol-notes.md)。
-- 0.1.0-alpha.5 已切到 OpenClaw node-compatible 主线；Gateway WebSocket 仍待真实 node path / 认证格式对齐。
+- 0.1.0-alpha.6 已按 Windows node 真实 Gateway 协议完成本地 mock Gateway 验证；远端真实 Gateway 仍待联调。
 
 ## 归档说明
 
