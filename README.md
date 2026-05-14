@@ -27,13 +27,17 @@ OpenClaw Browser Host Extension 是新的浏览器插件主线，用于替代或
 │   ├── gateway-protocol-notes.md
 │   ├── implementation-plan.md
 │   ├── todo.md
-│   └── research
-│       └── 2026-05-13-browser-extension-host.md
+│   ├── research
+│   │   └── 2026-05-13-browser-extension-host.md
+│   └── test-results
+│       └── 2026-05-14-local-smoke.md
 ├── extension
 │   ├── icons
 │   ├── manifest.json
 │   └── src
 │       ├── background.js
+│       ├── confirm.html
+│       ├── confirm.js
 │       ├── content.js
 │       ├── options.html
 │       ├── options.js
@@ -61,6 +65,8 @@ Edge:
 
 详细手工测试见 [浏览器插件手工测试 Runbook](docs/browser-test-runbook.md)。
 
+本地烟测记录见 [2026-05-14 local smoke](docs/test-results/2026-05-14-local-smoke.md)。
+
 ## PoC 能力
 
 当前插件骨架包含：
@@ -72,6 +78,7 @@ Edge:
 - Content script：页面标题、URL、选中文本、正文摘要。
 - 浏览器内 `user.confirm` PoC：弹出确认窗口并回传允许/拒绝。
 - Gateway 协议对齐记录见 [Gateway 协议对齐记录](docs/gateway-protocol-notes.md)。
+- 0.1.0-alpha.3 已通过浏览器侧本地烟测；Gateway WebSocket 仍待真实 node 协议/认证对齐。
 
 ## 归档说明
 

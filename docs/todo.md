@@ -1,20 +1,21 @@
 # TODO
 
-日期：2026-05-13
+日期：2026-05-14
 
-当前版本：0.1.0-alpha.2
+当前版本：0.1.0-alpha.3
 
 ## P0：插件功能
 
-- 完成 Manifest V3 插件骨架。已完成，待浏览器手工验证。
-- 配置页支持 Gateway URL / token。已完成，待浏览器手工验证。
-- Popup 展示连接状态。已完成，待浏览器手工验证。
-- 实现浏览器通知。已完成，待浏览器手工验证。
-- 实现当前 tab 元信息读取。已完成，待浏览器手工验证。
-- 实现 content script 页面摘要。已完成，待浏览器手工验证。
-- 实现下载记录摘要。已完成，待浏览器手工验证。
-- 实现浏览器内用户确认弹窗。已完成，待浏览器手工验证。
-- 按 [browser-test-runbook.md](browser-test-runbook.md) 完成 Chrome/Edge 手工验证。
+- 完成 Manifest V3 插件骨架。已完成。
+- 配置页支持 Gateway URL / token。已完成。
+- Popup 展示连接状态。已完成。
+- 实现浏览器通知。已完成。
+- 实现当前 tab 元信息读取。已完成。
+- 实现 content script 页面摘要。已完成。
+- 实现下载记录摘要。已完成。
+- 实现浏览器内用户确认弹窗。已完成。
+- 按 [browser-test-runbook.md](browser-test-runbook.md) 完成 Chrome/Edge 手工验证。Chrome for Testing 已完成，真实 Chrome/Edge Developer mode 待手工复核。
+- 0.1.0-alpha.3 已完成 Chrome for Testing 本地烟测；详见 `docs/test-results/2026-05-14-local-smoke.md`。
 
 ## P0：Gateway 连接
 
@@ -24,6 +25,7 @@
 - 增加 heartbeat。
 - 增加 invoke result 回传。
 - 当前 Gateway 消息格式仍是 PoC，需要后续对齐真实 OpenClaw browser node 协议。
+- Tailscale HTTPS `/health` 已验证可达；WebSocket 连接仍待真实 node 协议和认证对齐。
 
 ## P1：权限和安全
 

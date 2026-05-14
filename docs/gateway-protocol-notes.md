@@ -13,6 +13,12 @@
 
 这只是浏览器宿主本地开发格式，后续需要与 OpenClaw Gateway 的真实 node 协议对齐。
 
+2026-05-14 本地测试：
+
+- `https://fuyo-aicmac-mini.tailc6f104.ts.net/health` 可达。
+- 插件 WebSocket 连接 Gateway 返回 `WebSocket error`。
+- 下一步需要确认 Gateway 期望的 browser node WebSocket path、认证方式和 register/hello 消息格式。
+
 ## 插件当前声明能力
 
 - `browser.notify`
