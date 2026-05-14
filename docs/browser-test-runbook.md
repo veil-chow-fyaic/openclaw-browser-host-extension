@@ -1,7 +1,7 @@
 # 浏览器插件手工测试 Runbook
 
 日期：2026-05-13
-版本：0.1.0-alpha.1
+版本：0.1.0-alpha.2
 
 ## 目标
 
@@ -17,6 +17,19 @@
 ```
 
 ## 加载插件
+
+注意：Chrome/Edge 的 `manifest.version` 必须是数字版本号，仓库使用 `version: 0.1.0` 和 `version_name: 0.1.0-alpha.2`。
+
+## 自动化测试备注
+
+本地 Google Chrome Stable 会忽略部分命令行扩展加载参数，例如 `--disable-extensions-except`。因此自动化烟测更适合使用 Chrome for Testing / Playwright Chromium。
+
+当前仓库已完成：
+
+- `manifest.json` JSON 校验。
+- 所有 JS 文件语法检查。
+
+真实加载验证仍以 Chrome/Edge 的 Developer mode 手工加载为准。
 
 Chrome:
 
