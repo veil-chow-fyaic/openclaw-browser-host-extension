@@ -2,17 +2,31 @@ const DEFAULT_CONFIG = {
   gatewayUrl: '',
   token: '',
   nodeName: 'OpenClaw Browser Host',
+  protocol: 'browser-host',
   autoConnect: false
 };
 const CONFIRM_TIMEOUT_MS = 5 * 60 * 1000;
+const HEARTBEAT_INTERVAL_MS = 25 * 1000;
+const CAPABILITIES = [
+  'browser.notify',
+  'system.notify',
+  'browser.current_tab.info',
+  'browser.current_tab.extract',
+  'browser.downloads.summary',
+  'user.confirm'
+];
 
 let socket = null;
+let heartbeatTimer = null;
 let reconnectEnabled = false;
 let lastInvokeId = '';
 let pendingConfirm = null;
+let hostIdentity = null;
 let status = {
   connected: false,
   connecting: false,
+  registered: false,
+  hostId: '',
   lastError: '',
   lastConnectedAt: '',
   lastDisconnectedAt: '',
@@ -22,6 +36,7 @@ let status = {
 chrome.runtime.onInstalled.addListener(async () => {
   const existing = await chrome.storage.local.get(Object.keys(DEFAULT_CONFIG));
   await chrome.storage.local.set({ ...DEFAULT_CONFIG, ...existing });
+  await ensureHostIdentity();
 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
@@ -47,6 +62,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     .catch((error) => sendResponse({ ok: false, error: error.message }));
   return true;
 });
+
+ensureHostIdentity().catch((error) => setStatus({ lastError: error.message }));
 
 async function handleRuntimeMessage(message) {
   switch (message?.type) {
@@ -81,6 +98,7 @@ async function connectGateway() {
 
   reconnectEnabled = true;
   setStatus({ connecting: true, lastError: '' });
+  const identity = await ensureHostIdentity();
 
   if (socket) {
     socket.close();
@@ -92,21 +110,13 @@ async function connectGateway() {
     setStatus({
       connected: true,
       connecting: false,
+      registered: false,
+      hostId: identity.hostId,
       lastError: '',
       lastConnectedAt: new Date().toISOString()
     });
-    sendGatewayMessage({
-      type: 'browser.host.hello',
-      nodeName: config.nodeName,
-      token: config.token || undefined,
-      capabilities: [
-        'browser.notify',
-        'browser.current_tab.info',
-        'browser.current_tab.extract',
-        'browser.downloads.summary',
-        'user.confirm'
-      ]
-    });
+    sendRegisterMessage(config, identity);
+    startHeartbeat(config, identity);
   });
 
   socket.addEventListener('message', (event) => {
@@ -119,9 +129,11 @@ async function connectGateway() {
   });
 
   socket.addEventListener('close', () => {
+    stopHeartbeat();
     setStatus({
       connected: false,
       connecting: false,
+      registered: false,
       lastDisconnectedAt: new Date().toISOString()
     });
     if (reconnectEnabled) {
@@ -137,6 +149,7 @@ async function connectGateway() {
 function disconnectGateway() {
   reconnectEnabled = false;
   chrome.alarms.clear('openclaw-reconnect');
+  stopHeartbeat();
   if (socket) {
     socket.close();
     socket = null;
@@ -144,13 +157,27 @@ function disconnectGateway() {
   setStatus({
     connected: false,
     connecting: false,
+    registered: false,
     lastDisconnectedAt: new Date().toISOString()
   });
 }
 
 async function handleGatewayMessage(raw) {
   const message = JSON.parse(raw);
-  if (message.type !== 'node.invoke') {
+  if (message.type === 'browser.host.registered') {
+    setStatus({ registered: true, lastError: '' });
+    return;
+  }
+
+  if (message.type === 'browser.host.pong') {
+    setStatus({ lastHeartbeatAt: new Date().toISOString() });
+    return;
+  }
+
+  const isBrowserInvoke = message.type === 'browser.host.invoke';
+  const isNodeInvoke = message.type === 'node.invoke';
+  if (!isBrowserInvoke && !isNodeInvoke) {
+    setStatus({ lastError: `Ignored message type: ${message.type || 'unknown'}` });
     return;
   }
 
@@ -158,11 +185,84 @@ async function handleGatewayMessage(raw) {
   setStatus({ lastCommand: message.command || '' });
   const result = await executeCommand(message.command, message.args ?? {});
 
+  if (isBrowserInvoke) {
+    sendGatewayMessage({
+      type: 'browser.host.invoke.result',
+      id: message.id,
+      hostId: status.hostId || undefined,
+      command: message.command,
+      ...result
+    });
+    return;
+  }
+
   sendGatewayMessage({
     type: 'node.invoke.result',
     id: message.id,
     ...result
   });
+}
+
+async function ensureHostIdentity() {
+  if (hostIdentity) {
+    return hostIdentity;
+  }
+
+  const stored = await chrome.storage.local.get(['browserHostIdentity']);
+  if (stored.browserHostIdentity?.hostId) {
+    hostIdentity = stored.browserHostIdentity;
+    setStatus({ hostId: hostIdentity.hostId });
+    return hostIdentity;
+  }
+
+  hostIdentity = {
+    hostId: crypto.randomUUID(),
+    createdAt: new Date().toISOString(),
+    kind: 'browser-extension'
+  };
+  await chrome.storage.local.set({ browserHostIdentity: hostIdentity });
+  setStatus({ hostId: hostIdentity.hostId });
+  return hostIdentity;
+}
+
+function sendRegisterMessage(config, identity) {
+  const payload = {
+    type: 'browser.host.register',
+    protocolVersion: 1,
+    hostId: identity.hostId,
+    hostName: config.nodeName || 'OpenClaw Browser Host',
+    runtime: 'chrome-extension-mv3',
+    token: config.token || undefined,
+    capabilities: CAPABILITIES,
+    userAgent: navigator.userAgent,
+    connectedAt: new Date().toISOString()
+  };
+
+  if (config.protocol === 'node-compatible') {
+    payload.type = 'browser.host.hello';
+    payload.nodeName = payload.hostName;
+  }
+
+  sendGatewayMessage(payload);
+}
+
+function startHeartbeat(config, identity) {
+  stopHeartbeat();
+  heartbeatTimer = setInterval(() => {
+    sendGatewayMessage({
+      type: 'browser.host.heartbeat',
+      hostId: identity.hostId,
+      hostName: config.nodeName || 'OpenClaw Browser Host',
+      sentAt: new Date().toISOString()
+    });
+  }, HEARTBEAT_INTERVAL_MS);
+}
+
+function stopHeartbeat() {
+  if (heartbeatTimer) {
+    clearInterval(heartbeatTimer);
+    heartbeatTimer = null;
+  }
 }
 
 async function executeCommand(command, args) {

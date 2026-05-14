@@ -18,6 +18,7 @@
 - Manifest JSON 校验。
 - JS 语法检查。
 - Chrome for Testing 加载 unpacked extension。
+- 首次加载生成稳定 `browserHostIdentity.hostId`。
 - Options 保存 Gateway URL / Node name / autoConnect。
 - Popup 当前 Tab 获取。
 - 页面摘要：用户授权 `example.com` 后成功读取 title/url/textPreview。
@@ -28,8 +29,8 @@
 
 未通过 / 待对齐：
 
-- Extension WebSocket 连接 Gateway 返回 `WebSocket error`。
-- 原因判断：当前插件发送的是 PoC 消息格式，尚未对齐 OpenClaw Gateway 真实 node 协议和认证方式。
+- Extension WebSocket 连接当前 Gateway 返回 `WebSocket error`。
+- 原因判断：服务侧尚未提供 Browser Host endpoint，插件不再强制复用 OpenClaw node。
 
 ## 关键输出
 
@@ -85,3 +86,4 @@ Gateway health：
 - 访问 Tailscale `.ts.net` 地址时需要绕过本机 HTTP proxy；`curl --noproxy '*'` 可成功访问。
 - 浏览器实际使用中也可能需要确认系统代理没有拦截 Tailscale 流量。
 - 页面摘要第一次访问站点会触发站点权限授权，需要用户手动允许。
+- 0.1.0-alpha.4 起，插件按 Browser Host Protocol 管理 `hostId`、register、heartbeat、invoke/result，不强制复用 OpenClaw node。

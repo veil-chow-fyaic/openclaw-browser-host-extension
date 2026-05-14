@@ -2,7 +2,7 @@
 
 日期：2026-05-14
 
-当前版本：0.1.0-alpha.3
+当前版本：0.1.0-alpha.4
 
 ## P0：插件功能
 
@@ -19,13 +19,13 @@
 
 ## P0：Gateway 连接
 
-- 明确 OpenClaw Gateway 对 browser node 的注册协议。
-- 适配 pairing / device token。
+- 明确 OpenClaw 服务侧 Browser Host endpoint。
+- 适配 pairing / host token。
 - 增加 WebSocket reconnect。
 - 增加 heartbeat。
 - 增加 invoke result 回传。
-- 当前 Gateway 消息格式仍是 PoC，需要后续对齐真实 OpenClaw browser node 协议。
-- Tailscale HTTPS `/health` 已验证可达；WebSocket 连接仍待真实 node 协议和认证对齐。
+- 当前插件已实现 Browser Host Protocol v1 客户端草案。
+- Tailscale HTTPS `/health` 已验证可达；WebSocket 连接仍待服务侧提供 browser host endpoint 和认证。
 
 ## P1：权限和安全
 

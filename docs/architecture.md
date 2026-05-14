@@ -48,12 +48,12 @@ Chrome / Edge Extension
 - 全盘文件扫描
 - 浏览器关闭后的常驻
 
-## Gateway 连接
+## Browser Host 连接模型
 
-插件 service worker 直接连接 OpenClaw Gateway：
+插件 service worker 直接连接 OpenClaw 服务侧入口：
 
 ```text
-Extension service worker -> wss://<openclaw-gateway>
+Extension service worker -> wss://<openclaw-browser-host-endpoint>
 ```
 
 注意：
@@ -61,7 +61,26 @@ Extension service worker -> wss://<openclaw-gateway>
 - 纯插件不开放本地端口。
 - 插件 service worker 生命周期由浏览器管理。
 - WebSocket 断开后需重连。
-- 首版可使用 GatewayToken，产品化应改为短期 bootstrap + per-extension device token。
+- 首版可使用 token，产品化应改为短期 bootstrap + per-extension host token。
+- 插件不强制注册为 OpenClaw node；可以使用独立 Browser Host Protocol。
+
+## Browser Host Protocol
+
+推荐先按独立宿主协议做，不强依赖现有 OpenClaw node：
+
+```text
+browser.host.register
+browser.host.registered
+browser.host.heartbeat
+browser.host.pong
+browser.host.invoke
+browser.host.invoke.result
+browser.host.event
+```
+
+插件本地持久化一个 `hostId`，类似之前 Windows exe 的 device identity。服务侧可以按 `hostId` 管理授权、能力、在线状态和撤销。
+
+当前插件也保留 `node-compatible` 配置选项，方便后续如果决定复用 OpenClaw node 协议时做兼容。
 
 ## 权限策略
 
@@ -83,13 +102,15 @@ Extension service worker -> wss://<openclaw-gateway>
 
 ## 当前协议状态
 
-`background.js` 已提供命令分发层和 PoC 消息格式：
+`background.js` 已提供命令分发层：
 
-- 输入：`node.invoke`
-- 输出：`node.invoke.result`
+- Browser Host 输入：`browser.host.invoke`
+- Browser Host 输出：`browser.host.invoke.result`
+- 兼容输入：`node.invoke`
+- 兼容输出：`node.invoke.result`
 - 事件：`browser.host.event`
 
-这只是浏览器宿主内部 PoC 协议，后续需要和 OpenClaw Gateway 的真实 node 协议对齐。
+下一步重点是服务侧提供 browser host endpoint，而不是必须把插件塞进现有 node。
 
 ## 与 Windows exe 路线的关系
 

@@ -1,4 +1,4 @@
-const fields = ['gatewayUrl', 'token', 'nodeName', 'autoConnect'];
+const fields = ['gatewayUrl', 'token', 'nodeName', 'protocol', 'autoConnect'];
 const message = document.getElementById('message');
 
 load();

@@ -4,7 +4,7 @@ OpenClaw Browser Host Extension 是新的浏览器插件主线，用于替代或
 
 目标是在用户安装 Chrome / Edge 插件后，让 OpenClaw 能安全地触达用户常用浏览器上下文，包括通知、当前页面信息、用户确认、下载记录摘要和后续浏览器页面内容读取。
 
-当前版本：`0.1.0-alpha.2`。
+当前版本：`0.1.0-alpha.4`。
 
 ## 当前结论
 
@@ -77,6 +77,7 @@ Edge:
 - Background service worker：WebSocket 连接骨架、命令分发、重连、确认弹窗。
 - Content script：页面标题、URL、选中文本、正文摘要。
 - 浏览器内 `user.confirm` PoC：弹出确认窗口并回传允许/拒绝。
+- Browser Host Protocol v1 客户端草案：稳定 `hostId`、`register`、`heartbeat`、`invoke/result`、`event`。
 - Gateway 协议对齐记录见 [Gateway 协议对齐记录](docs/gateway-protocol-notes.md)。
 - 0.1.0-alpha.3 已通过浏览器侧本地烟测；Gateway WebSocket 仍待真实 node 协议/认证对齐。
 

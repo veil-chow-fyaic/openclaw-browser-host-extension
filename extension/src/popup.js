@@ -74,6 +74,9 @@ async function refreshStatus() {
   const connected = Boolean(response?.status?.connected);
   const connecting = Boolean(response?.status?.connecting);
   status.textContent = connected ? '已连接' : connecting ? '连接中' : '未连接';
+  if (connected && response?.status?.registered) {
+    status.textContent = '已注册';
+  }
   status.dataset.connected = String(connected);
 }
 
