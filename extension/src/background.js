@@ -215,9 +215,9 @@ async function showNotification(args) {
 }
 
 async function currentTabInfo() {
-  const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+  const tab = await getActiveWebTab();
   if (!tab) {
-    return { ok: false, error: 'No active tab' };
+    return { ok: false, error: 'No active web tab' };
   }
 
   return {
@@ -233,9 +233,9 @@ async function currentTabInfo() {
 }
 
 async function currentPageSummary() {
-  const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+  const tab = await getActiveWebTab();
   if (!tab?.id) {
-    return { ok: false, error: 'No active tab' };
+    return { ok: false, error: 'No active web tab' };
   }
 
   try {
@@ -248,6 +248,24 @@ async function currentPageSummary() {
   } catch (error) {
     return { ok: false, error: `Page summary failed: ${error.message}` };
   }
+}
+
+async function getActiveWebTab() {
+  const focused = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+  const direct = focused.find(isWebTab);
+  if (direct) {
+    return direct;
+  }
+
+  const candidates = await chrome.tabs.query({});
+  return candidates
+    .filter(isWebTab)
+    .sort((a, b) => (b.lastAccessed || 0) - (a.lastAccessed || 0))[0];
+}
+
+function isWebTab(tab) {
+  return typeof tab.url === 'string' &&
+    (tab.url.startsWith('http://') || tab.url.startsWith('https://'));
 }
 
 async function downloadsSummary(args) {

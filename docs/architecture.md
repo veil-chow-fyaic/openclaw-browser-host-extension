@@ -79,7 +79,7 @@ Extension service worker -> wss://<openclaw-gateway>
 - 页面内容读取优先使用 `activeTab` + 用户点击触发。
 - 避免默认 `host_permissions: <all_urls>`。
 - 需要域名 scope 时再请求具体 host permissions。
-- 当前 PoC 不默认注入全站 content script；用户在 popup 中主动触发页面摘要时才通过 `chrome.scripting.executeScript` 注入。
+- 当前 PoC 不默认注入全站 content script；用户在 popup 中主动触发页面摘要时，先通过 `chrome.permissions.request` 请求当前站点权限，再通过 `chrome.scripting.executeScript` 注入。
 
 ## 当前协议状态
 

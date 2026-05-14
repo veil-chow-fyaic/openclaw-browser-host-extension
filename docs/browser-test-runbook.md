@@ -28,8 +28,15 @@
 
 - `manifest.json` JSON 校验。
 - 所有 JS 文件语法检查。
+- Playwright Chrome for Testing 加载 extension 烟测。
+- Popup 当前 Tab、下载摘要、通知路径烟测。
 
 真实加载验证仍以 Chrome/Edge 的 Developer mode 手工加载为准。
+
+已知自动化限制：
+
+- 页面摘要首次请求站点权限时会出现浏览器权限确认 UI，自动化脚本不会代替用户点击授权。
+- 手工测试时需要允许当前站点访问后，再验证页面摘要结果。
 
 Chrome:
 
@@ -65,6 +72,7 @@ Edge:
 - 点击“测试通知”，浏览器应出现通知。
 - 点击“当前 Tab”，结果应包含当前页面 title/url。
 - 点击“页面摘要”，结果应包含 title/url/selection/textPreview。
+  - 第一次对某个站点使用时，浏览器会要求授予该站点访问权限。
 - 点击“下载摘要”，结果应返回最近下载元数据。
 - 点击“确认弹窗”，应弹出确认窗口，点击允许/拒绝后返回结果。
 

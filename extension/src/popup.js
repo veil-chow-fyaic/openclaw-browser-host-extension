@@ -11,7 +11,7 @@ bind('notify', {
   }
 });
 bind('tab', { type: 'currentTab' });
-bind('summary', { type: 'pageSummary' });
+bindPageSummary();
 bind('downloads', {
   type: 'downloadsSummary',
   payload: { lookbackMinutes: 60, maxItems: 20 }
@@ -31,6 +31,41 @@ function bind(id, message) {
     const response = await chrome.runtime.sendMessage(message);
     render(response);
     await refreshStatus();
+  });
+}
+
+function bindPageSummary() {
+  document.getElementById('summary').addEventListener('click', async () => {
+    try {
+      render({ ok: true, payload: { status: 'extracting-page-summary' } });
+      const firstAttempt = await chrome.runtime.sendMessage({ type: 'pageSummary' });
+      if (firstAttempt?.ok) {
+        render(firstAttempt);
+        await refreshStatus();
+        return;
+      }
+
+      const tabResponse = await chrome.runtime.sendMessage({ type: 'currentTab' });
+      if (!tabResponse?.ok || !tabResponse.payload?.url) {
+        render(firstAttempt || tabResponse);
+        return;
+      }
+
+      const origin = new URL(tabResponse.payload.url).origin;
+      render({ ok: true, payload: { status: 'requesting-page-permission', origin } });
+      const granted = await chrome.permissions.request({ origins: [`${origin}/*`] });
+      if (!granted) {
+        render({ ok: false, error: `Permission denied for ${origin}` });
+        return;
+      }
+
+      render({ ok: true, payload: { status: 'extracting-page-summary', origin } });
+      const response = await chrome.runtime.sendMessage({ type: 'pageSummary' });
+      render(response);
+      await refreshStatus();
+    } catch (error) {
+      render({ ok: false, error: error.message });
+    }
   });
 }
 
