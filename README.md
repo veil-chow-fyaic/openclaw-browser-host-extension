@@ -26,6 +26,7 @@ OpenClaw Browser Host Extension 是新的浏览器插件主线，用于替代或
 │   ├── browser-test-runbook.md
 │   ├── gateway-protocol-notes.md
 │   ├── implementation-plan.md
+│   ├── quick-install.md
 │   ├── todo.md
 │   ├── research
 │   │   └── 2026-05-13-browser-extension-host.md
@@ -44,10 +45,29 @@ OpenClaw Browser Host Extension 是新的浏览器插件主线，用于替代或
 │       ├── popup.html
 │       ├── popup.js
 │       └── styles.css
+├── scripts
+│   ├── package-extension.ps1
+│   └── package-extension.sh
 └── README.md
 ```
 
 ## 本地加载
+
+内测分发和快速安装见 [快速安装 OpenClaw Browser Host](docs/quick-install.md)。
+
+生成 zip 包：
+
+macOS / Linux:
+
+```bash
+./scripts/package-extension.sh
+```
+
+Windows PowerShell:
+
+```powershell
+.\scripts\package-extension.ps1
+```
 
 Chrome:
 
