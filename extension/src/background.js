@@ -2,7 +2,7 @@ const DEFAULT_CONFIG = {
   gatewayUrl: '',
   token: '',
   nodeName: 'OpenClaw Browser Host',
-  protocol: 'browser-host',
+  protocol: 'node-compatible',
   autoConnect: false
 };
 const CONFIRM_TIMEOUT_MS = 5 * 60 * 1000;
@@ -164,12 +164,12 @@ function disconnectGateway() {
 
 async function handleGatewayMessage(raw) {
   const message = JSON.parse(raw);
-  if (message.type === 'browser.host.registered') {
+  if (message.type === 'browser.host.registered' || message.type === 'node.registered') {
     setStatus({ registered: true, lastError: '' });
     return;
   }
 
-  if (message.type === 'browser.host.pong') {
+  if (message.type === 'browser.host.pong' || message.type === 'node.pong' || message.type === 'pong') {
     setStatus({ lastHeartbeatAt: new Date().toISOString() });
     return;
   }
@@ -239,8 +239,12 @@ function sendRegisterMessage(config, identity) {
   };
 
   if (config.protocol === 'node-compatible') {
-    payload.type = 'browser.host.hello';
+    payload.type = 'node.register';
     payload.nodeName = payload.hostName;
+    payload.nodeType = 'browser-extension';
+    payload.deviceId = identity.hostId;
+    payload.deviceName = payload.hostName;
+    payload.platform = 'browser';
   }
 
   sendGatewayMessage(payload);
@@ -249,12 +253,17 @@ function sendRegisterMessage(config, identity) {
 function startHeartbeat(config, identity) {
   stopHeartbeat();
   heartbeatTimer = setInterval(() => {
-    sendGatewayMessage({
+    const heartbeat = {
       type: 'browser.host.heartbeat',
       hostId: identity.hostId,
       hostName: config.nodeName || 'OpenClaw Browser Host',
       sentAt: new Date().toISOString()
-    });
+    };
+    if (config.protocol === 'node-compatible') {
+      heartbeat.type = 'node.heartbeat';
+      heartbeat.deviceId = identity.hostId;
+    }
+    sendGatewayMessage(heartbeat);
   }, HEARTBEAT_INTERVAL_MS);
 }
 

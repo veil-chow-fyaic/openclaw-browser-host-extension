@@ -48,12 +48,12 @@ Chrome / Edge Extension
 - 全盘文件扫描
 - 浏览器关闭后的常驻
 
-## Browser Host 连接模型
+## OpenClaw Node 连接模型
 
-插件 service worker 直接连接 OpenClaw 服务侧入口：
+插件 service worker 直接连接 OpenClaw Gateway：
 
 ```text
-Extension service worker -> wss://<openclaw-browser-host-endpoint>
+Extension service worker -> wss://<openclaw-gateway>
 ```
 
 注意：
@@ -61,26 +61,23 @@ Extension service worker -> wss://<openclaw-browser-host-endpoint>
 - 纯插件不开放本地端口。
 - 插件 service worker 生命周期由浏览器管理。
 - WebSocket 断开后需重连。
-- 首版可使用 token，产品化应改为短期 bootstrap + per-extension host token。
-- 插件不强制注册为 OpenClaw node；可以使用独立 Browser Host Protocol。
+- 推荐统一复用 OpenClaw node 后端能力，包括 pairing、device token、capability registry、invoke/result、event、审计和在线状态。
+- 插件作为新的 node 类型：`browser-extension`。
+- 产品化应改为短期 bootstrap + per-extension device token。
 
-## Browser Host Protocol
+## Browser Extension Node
 
-推荐先按独立宿主协议做，不强依赖现有 OpenClaw node：
+推荐主线：
 
 ```text
-browser.host.register
-browser.host.registered
-browser.host.heartbeat
-browser.host.pong
-browser.host.invoke
-browser.host.invoke.result
-browser.host.event
+OpenClaw Node Protocol
+├── Windows Node / Bondie.exe
+└── Browser Extension Node
 ```
 
-插件本地持久化一个 `hostId`，类似之前 Windows exe 的 device identity。服务侧可以按 `hostId` 管理授权、能力、在线状态和撤销。
+浏览器插件本地持久化一个 `hostId`，可映射为 OpenClaw node 的 deviceId/nodeId。服务侧统一按 node 管理授权、能力、在线状态和撤销。
 
-当前插件也保留 `node-compatible` 配置选项，方便后续如果决定复用 OpenClaw node 协议时做兼容。
+当前插件默认 `node-compatible`，同时保留 `browser-host` 作为备选/fallback，避免服务侧短期还未接入 node 协议时卡死。
 
 ## 权限策略
 
@@ -110,7 +107,7 @@ browser.host.event
 - 兼容输出：`node.invoke.result`
 - 事件：`browser.host.event`
 
-下一步重点是服务侧提供 browser host endpoint，而不是必须把插件塞进现有 node。
+下一步重点是服务侧让 Gateway 接受 `browser-extension` node 类型，并允许其注册浏览器能力。
 
 ## 与 Windows exe 路线的关系
 

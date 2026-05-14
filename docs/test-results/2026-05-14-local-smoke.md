@@ -1,7 +1,7 @@
 # 本地浏览器插件烟测记录
 
 日期：2026-05-14
-版本：0.1.0-alpha.3
+版本：0.1.0-alpha.5
 
 ## 环境
 
@@ -30,7 +30,7 @@
 未通过 / 待对齐：
 
 - Extension WebSocket 连接当前 Gateway 返回 `WebSocket error`。
-- 原因判断：服务侧尚未提供 Browser Host endpoint，插件不再强制复用 OpenClaw node。
+- 原因判断：插件已默认走 OpenClaw node-compatible，但服务侧仍需确认可复用的 node WebSocket path、register 消息格式和认证方式。
 
 ## 关键输出
 
@@ -86,4 +86,4 @@ Gateway health：
 - 访问 Tailscale `.ts.net` 地址时需要绕过本机 HTTP proxy；`curl --noproxy '*'` 可成功访问。
 - 浏览器实际使用中也可能需要确认系统代理没有拦截 Tailscale 流量。
 - 页面摘要第一次访问站点会触发站点权限授权，需要用户手动允许。
-- 0.1.0-alpha.4 起，插件按 Browser Host Protocol 管理 `hostId`、register、heartbeat、invoke/result，不强制复用 OpenClaw node。
+- 0.1.0-alpha.5 起，插件默认按 OpenClaw `browser-extension` node 管理 `hostId`、register、heartbeat、invoke/result；Browser Host Protocol 仅保留为 fallback。

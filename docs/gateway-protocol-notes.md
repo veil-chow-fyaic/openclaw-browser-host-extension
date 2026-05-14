@@ -4,7 +4,18 @@
 
 ## 当前状态
 
-插件 `background.js` 已实现 Browser Host Protocol：
+主线改为复用 OpenClaw node 后端，浏览器插件作为一种新的 node 类型：`browser-extension`。
+
+插件 `background.js` 当前默认 `node-compatible`：
+
+- `node.register`
+- `node.registered`
+- `node.heartbeat`
+- `node.pong` / `pong`
+- `node.invoke`
+- `node.invoke.result`
+
+同时保留 Browser Host Protocol fallback：
 
 - `browser.host.register`
 - `browser.host.registered`
@@ -14,19 +25,13 @@
 - `browser.host.invoke.result`
 - `browser.host.event`
 
-同时保留兼容消息：
-
-- `browser.host.hello`
-- `node.invoke`
-- `node.invoke.result`
-
-这条路线不强制使用 OpenClaw node。OpenClaw 服务侧可以新增 Browser Host endpoint，按 `hostId` 管理浏览器插件宿主。
+这样浏览器插件和 Windows/exe 可以共享同一套 pairing、identity、invoke/event、审计、权限模型。
 
 2026-05-14 本地测试：
 
 - `https://fuyo-aicmac-mini.tailc6f104.ts.net/health` 可达。
 - 插件 WebSocket 连接现有 Gateway 返回 `WebSocket error`。
-- 下一步需要新增或确认 Browser Host WebSocket endpoint、认证方式和 register 消息格式。
+- 下一步需要确认 Gateway 是否已有 node WebSocket path 可供 browser-extension 复用，以及 register/认证消息格式。
 
 ## 插件当前声明能力
 
@@ -36,18 +41,20 @@
 - `browser.downloads.summary`
 - `user.confirm`
 
-## Browser Host Protocol v1 草案
+## Browser Extension Node 草案
 
 ### register
 
-插件连接后发送：
+插件连接后发送 node-compatible register：
 
 ```json
 {
-  "type": "browser.host.register",
+  "type": "node.register",
   "protocolVersion": 1,
-  "hostId": "<stable-extension-host-id>",
-  "hostName": "OpenClaw Browser Host",
+  "deviceId": "<stable-extension-host-id>",
+  "deviceName": "OpenClaw Browser Host",
+  "nodeType": "browser-extension",
+  "platform": "browser",
   "runtime": "chrome-extension-mv3",
   "token": "<optional-bootstrap-or-host-token>",
   "capabilities": [
@@ -64,8 +71,8 @@
 
 ```json
 {
-  "type": "browser.host.registered",
-  "hostId": "<stable-extension-host-id>",
+  "type": "node.registered",
+  "deviceId": "<stable-extension-host-id>",
   "accepted": true
 }
 ```
@@ -76,7 +83,7 @@
 
 ```json
 {
-  "type": "browser.host.invoke",
+  "type": "node.invoke",
   "id": "req_123",
   "command": "browser.current_tab.info",
   "args": {}
@@ -87,9 +94,8 @@
 
 ```json
 {
-  "type": "browser.host.invoke.result",
+  "type": "node.invoke.result",
   "id": "req_123",
-  "hostId": "<stable-extension-host-id>",
   "command": "browser.current_tab.info",
   "ok": true,
   "payload": {}
@@ -110,23 +116,24 @@
 
 ## 需要向服务侧确认的问题
 
-1. Browser Host endpoint path，例如 `/browser-host/ws`。
-2. Pairing/enrollment 使用 BootstrapToken，还是 BrowserHostToken。
-3. `hostId` 是否由插件生成并持久化。
+1. 现有 OpenClaw node WebSocket path 是否可直接复用。
+2. Pairing/enrollment 使用 BootstrapToken，还是 GatewayToken。
+3. `hostId` 是否由插件生成并持久化，再映射为 deviceId/nodeId。
 4. 服务侧是否需要 approve flow。
 5. capability registry 是否直接使用 register 中的 capabilities。
 6. heartbeat/ping/pong 频率。
-7. 浏览器 service worker 断线重连后，host identity 是否复用。
-8. 是否需要继续兼容 OpenClaw node 协议。
+7. 浏览器 service worker 断线重连后，device identity 是否复用。
+8. 浏览器 node 的 capabilities 是否要归类到 `browser` category。
+9. Browser Host Protocol fallback 是否需要独立 endpoint，例如 `/browser-host/ws`。
 
 ## 建议方向
 
-优先新增 Browser Host endpoint，不强制复用现有 node 协议。这样更贴合浏览器插件路线，也避免把浏览器能力套进 Windows node 模型。
+优先复用 OpenClaw node 后端。浏览器插件与 Windows/exe 共用后端服务、CLI、agent skill、审计和权限体系，长期维护成本更低。
 
 建议保持：
 
-- per-extension hostId。
+- per-extension hostId/deviceId。
 - bootstrap/enrollment。
-- hostToken 持久化在 `chrome.storage.local`。
+- deviceToken 持久化在 `chrome.storage.local`。
 - 能力 allowlist 明确上报。
 - invoke result 和 event 都带 requestId。
