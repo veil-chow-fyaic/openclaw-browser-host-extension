@@ -7,7 +7,9 @@ const DEFAULT_CONFIG = {
   autoConnect: false
 };
 const CONFIRM_TIMEOUT_MS = 5 * 60 * 1000;
-const HEARTBEAT_INTERVAL_MS = 25 * 1000;
+const HEARTBEAT_INTERVAL_MS = 20 * 1000;
+const RECONNECT_ALARM_MINUTES = 1;
+const RECONNECT_BACKOFF_MS = [1000, 2000, 5000, 10000, 30000];
 const NODE_CLIENT_ID = 'node-host';
 const NODE_PROTOCOL_VERSION = 3;
 const NODE_CATEGORIES = ['browser', 'user'];
@@ -22,6 +24,8 @@ const CAPABILITIES = [
 
 let socket = null;
 let heartbeatTimer = null;
+let reconnectTimer = null;
+let reconnectAttempt = 0;
 let reconnectEnabled = false;
 let lastInvokeId = '';
 let pendingConfirm = null;
@@ -30,6 +34,7 @@ let status = {
   connected: false,
   connecting: false,
   registered: false,
+  online: false,
   hostId: '',
   nodeId: '',
   pairing: '',
@@ -100,21 +105,25 @@ async function connectGateway() {
   }
 
   reconnectEnabled = true;
+  clearReconnectSchedule();
   setStatus({ connecting: true, lastError: '' });
   const identity = await ensureHostIdentity();
 
   if (socket) {
-    socket.close();
+    socket.close(1000, 'reconnect requested');
     socket = null;
   }
 
   socket = new WebSocket(config.gatewayUrl);
+  const activeSocket = socket;
   socket.addEventListener('open', () => {
+    reconnectAttempt = 0;
     setStatus({
       connected: true,
       connecting: false,
-      registered: false,
+      online: true,
       hostId: identity.hostId,
+      pairing: storedAuth.browserDeviceToken ? 'paired' : status.pairing,
       lastError: '',
       lastConnectedAt: new Date().toISOString()
     });
@@ -134,15 +143,18 @@ async function connectGateway() {
   });
 
   socket.addEventListener('close', () => {
+    if (socket === activeSocket) {
+      socket = null;
+    }
     stopHeartbeat();
     setStatus({
       connected: false,
       connecting: false,
-      registered: false,
+      online: false,
       lastDisconnectedAt: new Date().toISOString()
     });
     if (reconnectEnabled) {
-      chrome.alarms.create('openclaw-reconnect', { delayInMinutes: 1 });
+      scheduleReconnect();
     }
   });
 
@@ -153,18 +165,37 @@ async function connectGateway() {
 
 function disconnectGateway() {
   reconnectEnabled = false;
-  chrome.alarms.clear('openclaw-reconnect');
+  clearReconnectSchedule();
   stopHeartbeat();
   if (socket) {
-    socket.close();
+    socket.close(1000, 'manual disconnect');
     socket = null;
   }
   setStatus({
     connected: false,
     connecting: false,
-    registered: false,
+    online: false,
     lastDisconnectedAt: new Date().toISOString()
   });
+}
+
+function scheduleReconnect() {
+  clearReconnectSchedule();
+  const delay = RECONNECT_BACKOFF_MS[Math.min(reconnectAttempt, RECONNECT_BACKOFF_MS.length - 1)];
+  reconnectAttempt += 1;
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = null;
+    connectGateway().catch((error) => setStatus({ lastError: error.message }));
+  }, delay);
+  chrome.alarms.create('openclaw-reconnect', { delayInMinutes: RECONNECT_ALARM_MINUTES });
+}
+
+function clearReconnectSchedule() {
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
+  chrome.alarms.clear('openclaw-reconnect');
 }
 
 async function handleGatewayMessage(raw) {
@@ -188,7 +219,6 @@ async function handleGatewayMessage(raw) {
   const isBrowserInvoke = message.type === 'browser.host.invoke';
   const isNodeInvoke = message.type === 'node.invoke';
   if (!isBrowserInvoke && !isNodeInvoke) {
-    setStatus({ lastError: `Ignored message type: ${message.type || 'unknown'}` });
     return;
   }
 
@@ -220,9 +250,10 @@ async function ensureHostIdentity() {
   }
 
   const stored = await chrome.storage.local.get(['browserHostIdentity']);
+  const auth = await chrome.storage.local.get(['browserDeviceToken']);
   if (stored.browserHostIdentity?.privateKeyJwk && stored.browserHostIdentity?.publicKeyBase64Url) {
     hostIdentity = stored.browserHostIdentity;
-    setStatus({ hostId: hostIdentity.hostId });
+    setStatus({ hostId: hostIdentity.hostId, pairing: auth.browserDeviceToken ? 'paired' : status.pairing });
     return hostIdentity;
   }
 
@@ -234,7 +265,7 @@ async function ensureHostIdentity() {
     kind: 'browser-extension'
   };
   await chrome.storage.local.set({ browserHostIdentity: hostIdentity });
-  setStatus({ hostId: hostIdentity.hostId });
+  setStatus({ hostId: hostIdentity.hostId, pairing: auth.browserDeviceToken ? 'paired' : status.pairing });
   return hostIdentity;
 }
 
@@ -271,16 +302,26 @@ function sendBrowserHostRegisterMessage(config, identity) {
 function startHeartbeat(config, identity) {
   stopHeartbeat();
   heartbeatTimer = setInterval(() => {
+    if (config.protocol === 'node-compatible') {
+      sendGatewayMessage({
+        type: 'req',
+        id: crypto.randomUUID(),
+        method: 'ping',
+        params: {
+          client: NODE_CLIENT_ID,
+          deviceId: identity.hostId,
+          sentAt: new Date().toISOString()
+        }
+      });
+      return;
+    }
+
     const heartbeat = {
       type: 'browser.host.heartbeat',
       hostId: identity.hostId,
       hostName: config.nodeName || 'OpenClaw Browser Host',
       sentAt: new Date().toISOString()
     };
-    if (config.protocol === 'node-compatible') {
-      heartbeat.type = 'node.heartbeat';
-      heartbeat.deviceId = identity.hostId;
-    }
     sendGatewayMessage(heartbeat);
   }, HEARTBEAT_INTERVAL_MS);
 }
@@ -345,6 +386,10 @@ async function handleOpenClawNodeMessage(message, config) {
     }
 
     if (eventType === 'node.pair.requested' || eventType === 'device.pair.requested') {
+      const stored = await chrome.storage.local.get(['browserDeviceToken']);
+      if (stored.browserDeviceToken || status.pairing === 'paired') {
+        return true;
+      }
       setStatus({ pairing: 'pending', lastError: 'Pairing approval required' });
       return true;
     }
@@ -362,7 +407,7 @@ async function handleOpenClawNodeMessage(message, config) {
   }
 
   if (message.type === 'res') {
-    handleNodeResponse(message);
+    await handleNodeResponse(message);
     return true;
   }
 
@@ -453,7 +498,7 @@ async function signNodeConnectPayload(identity, nonce, signedAt, authToken) {
   return base64UrlEncode(signature);
 }
 
-function handleNodeResponse(message) {
+async function handleNodeResponse(message) {
   if (message.ok === false) {
     const code = message.error?.code || '';
     const errorMessage = message.error?.message || 'Node request failed';
@@ -476,6 +521,9 @@ function handleNodeResponse(message) {
 
   const patch = {
     registered: true,
+    connected: true,
+    connecting: false,
+    online: true,
     pairing: 'paired',
     nodeId: payload.nodeId || status.hostId,
     lastError: ''
@@ -487,6 +535,10 @@ function handleNodeResponse(message) {
   }
 
   setStatus(patch);
+  chrome.storage.local.set({ browserPairingStatus: 'paired' });
+  const config = await chrome.storage.local.get(Object.keys(DEFAULT_CONFIG));
+  const identity = await ensureHostIdentity();
+  startHeartbeat(config, identity);
 }
 
 async function handleNodeRequest(message) {

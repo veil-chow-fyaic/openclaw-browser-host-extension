@@ -2,14 +2,14 @@
 
 日期：2026-05-14
 
-适用版本：0.1.0-alpha.6
+适用版本：0.1.0-alpha.7
 
 ## 安装包
 
 内测分发使用 zip 包：
 
 ```text
-openclaw-browser-host-extension-0.1.0-alpha.6.zip
+openclaw-browser-host-extension-0.1.0-alpha.7.zip
 ```
 
 用户拿到 zip 后先解压到一个固定目录，例如：
@@ -115,4 +115,3 @@ Chrome / Edge 对浏览器插件有安全限制。PoC 内测阶段使用 unpacke
 1. 关闭浏览器或停用旧扩展。
 2. 用新 zip 解压覆盖旧目录。
 3. 在 `chrome://extensions` 或 `edge://extensions` 点击插件卡片上的 Reload。
-

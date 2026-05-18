@@ -1,7 +1,7 @@
 # 本地浏览器插件烟测记录
 
 日期：2026-05-14
-版本：0.1.0-alpha.6
+版本：0.1.0-alpha.7
 
 ## 环境
 
@@ -33,11 +33,19 @@
   - 插件发送 `connect`，包含 `caps`、`commands`、`auth`、`device.publicKey`、`device.signature`。
   - mock Gateway 返回 `hello-ok` 后，插件保存 `browserDeviceToken`。
   - mock Gateway 下发 `node.invoke.request` 调用 `browser.notify`，插件返回 `node.invoke.result`。
+- 真实 Chrome 手工测试：
+  - 插件安装到日常 Chrome。
+  - 配置 Tailscale Gateway URL、GatewayToken、node-compatible。
+  - 本地通知测试通过。
+  - 真实 Gateway WebSocket Upgrade 返回 `101 Switching Protocols` 和 `connect.challenge`。
+  - 服务侧 `openclaw devices approve --latest` 后，`OpenClaw Browser Host` 出现在 Paired 列表。
+  - 发现并修复 paired 与 online 生命周期混淆：WebSocket 断开不应重置 paired，也不应造成重复配对体验。
+  - popup 状态文案同步改为“在线 / 已配对，重连中 / 等待配对”，避免把已授权误报成每次重新配对。
 
 未通过 / 待对齐：
 
-- 远端真实 Gateway 尚未完成插件联调。
-- 原因判断：插件侧已对齐 Windows node 真实 JSON-RPC 握手形态，下一步需要用真实 OpenClaw Gateway 验证 node WebSocket path、Origin 策略、GatewayToken/BootstrapToken 和 approve 流程。
+- 长时间在线稳定性仍需继续观察。
+- 原因判断：Manifest V3 service worker 会影响长连接生命周期，0.1.0-alpha.7 已增加 20 秒 keepalive 和快速重连，下一步需要实测远端 invoke 在重连后的可用性。
 
 ## 关键输出
 
@@ -93,4 +101,4 @@ Gateway health：
 - 访问 Tailscale `.ts.net` 地址时需要绕过本机 HTTP proxy；`curl --noproxy '*'` 可成功访问。
 - 浏览器实际使用中也可能需要确认系统代理没有拦截 Tailscale 流量。
 - 页面摘要第一次访问站点会触发站点权限授权，需要用户手动允许。
-- 0.1.0-alpha.6 起，插件默认按 OpenClaw Windows node 同款 Gateway 协议管理 Ed25519 device identity、签名 `connect`、deviceToken、invoke/result；Browser Host Protocol 仅保留为 fallback。
+- 0.1.0-alpha.7 起，插件默认按 OpenClaw Windows node 同款 Gateway 协议管理 Ed25519 device identity、签名 `connect`、deviceToken、invoke/result，并分离 paired 与 online 状态；Browser Host Protocol 仅保留为 fallback。

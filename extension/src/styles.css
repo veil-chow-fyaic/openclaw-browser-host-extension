@@ -30,8 +30,17 @@ header {
   color: #8a4b00;
 }
 
-.status[data-connected="true"] {
+.status[data-state="online"] {
   color: #0a7f42;
+}
+
+.status[data-state="paired"],
+.status[data-state="connecting"] {
+  color: #8a4b00;
+}
+
+.status[data-state="offline"] {
+  color: #7a8794;
 }
 
 .actions {

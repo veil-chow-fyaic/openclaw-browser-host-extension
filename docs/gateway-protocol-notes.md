@@ -72,7 +72,7 @@
     "maxProtocol": 3,
     "client": {
       "id": "node-host",
-      "version": "0.1.0-alpha.6",
+      "version": "0.1.0-alpha.7",
       "platform": "browser",
       "mode": "node",
       "displayName": "OpenClaw Browser Host"
@@ -169,5 +169,7 @@
 - per-extension hostId/deviceId。
 - bootstrap/enrollment。
 - deviceToken 持久化在 `chrome.storage.local`。
+- paired 是设备授权状态，online/offline 是 WebSocket 连接状态；两者不能混用。
+- 浏览器 MV3 需要 keepalive 和快速重连，避免 service worker 生命周期导致用户感知为反复配对。
 - 能力 allowlist 明确上报。
 - invoke result 和 event 都带 requestId。

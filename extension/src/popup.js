@@ -71,13 +71,24 @@ function bindPageSummary() {
 
 async function refreshStatus() {
   const response = await chrome.runtime.sendMessage({ type: 'status' });
-  const connected = Boolean(response?.status?.connected);
+  const current = response?.status || {};
+  const connected = Boolean(current.connected);
+  const online = Boolean(current.online);
   const connecting = Boolean(response?.status?.connecting);
-  status.textContent = connected ? '已连接' : connecting ? '连接中' : '未连接';
-  if (connected && response?.status?.registered) {
-    status.textContent = '已注册';
+  const paired = current.pairing === 'paired' || Boolean(current.registered);
+
+  if (online && paired) {
+    status.textContent = '在线';
+  } else if (connecting) {
+    status.textContent = '连接中';
+  } else if (paired) {
+    status.textContent = '已配对，重连中';
+  } else if (current.pairing === 'pending') {
+    status.textContent = '等待配对';
+  } else {
+    status.textContent = connected ? '已连接' : '未连接';
   }
-  status.dataset.connected = String(connected);
+  status.dataset.state = online && paired ? 'online' : paired ? 'paired' : connecting ? 'connecting' : 'offline';
 }
 
 function render(value) {

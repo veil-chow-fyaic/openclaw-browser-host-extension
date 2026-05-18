@@ -2,7 +2,7 @@
 
 日期：2026-05-14
 
-当前版本：0.1.0-alpha.6
+当前版本：0.1.0-alpha.7
 
 ## P0：插件功能
 
@@ -17,6 +17,7 @@
 - 实现浏览器内用户确认弹窗。已完成。
 - 按 [browser-test-runbook.md](browser-test-runbook.md) 完成 Chrome/Edge 手工验证。Chrome for Testing 已完成，真实 Chrome/Edge Developer mode 待手工复核。
 - 0.1.0-alpha.3 已完成 Chrome for Testing 本地烟测；0.1.0-alpha.6 已完成本地 mock Gateway 的真实 node 协议握手和 invoke 验证，详见 `docs/test-results/2026-05-14-local-smoke.md`。
+- 0.1.0-alpha.7 已修正 paired 与 online 生命周期混淆问题，增加 MV3 keepalive 和快速重连。
 
 ## P0：Gateway / Node 连接
 
@@ -26,6 +27,8 @@
 - 增加 WebSocket reconnect。
 - 响应 Gateway `ping`。
 - 增加 invoke result 回传。已完成。
+- 分离 pairing 状态和连接状态。已完成。
+- MV3 keepalive / 快速重连。已完成，仍需长时间真实 Gateway 验证。
 - 当前插件默认 `node-compatible`，Browser Host Protocol 仅作 fallback。
 - Tailscale HTTPS `/health` 已验证可达；真实远端 Gateway WebSocket 仍待联调。
 

@@ -27,6 +27,7 @@ https://github.com/veil-chow-fyaic/openclaw-windows-client-host
 - Pairing / device token / node online。
 - Windows 11 Toast 通知。
 - Toast 点击回传 `notification.clicked`。
+- `Paired` 属于内部授权状态，不应在每次重连时作为用户通知弹出；用户可见通知应只保留业务消息、待批准、拒绝或异常。
 - `user.confirm`。
 - `files.changes.summary` 元数据统计。
 - 可分发 agent skill：`skills/openclaw-bondie`。
