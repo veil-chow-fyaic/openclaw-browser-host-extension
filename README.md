@@ -2,15 +2,18 @@
 
 OpenClaw Browser Host Extension 是新的浏览器插件主线，用于替代或补充之前的 Windows `Bondie.exe` 客户侧宿主方案。
 
-目标是在用户安装 Chrome / Edge 插件后，让 OpenClaw 能安全地触达用户常用浏览器上下文，包括通知、当前页面信息、用户确认、下载记录摘要和后续浏览器页面内容读取。
+0.1.x 阶段目标是在用户安装 Chrome / Edge 插件后，让 OpenClaw 能安全地触达用户常用浏览器上下文，包括通知、当前页面信息、用户确认、下载记录摘要和页面内容读取。
+
+2026-05-15 产品会议后，浏览器插件路线升级为“浏览器智能工作流 Agent 门户”。后续主线不再只是远程宿主，而是围绕 Pattern Memory、Context Capture 和 OpenClaw Recap 主动建议构建产品体验。会议需求整理见 [浏览器智能工作流 Agent 产品化需求整理](docs/product-requirements-2026-05-15.md)。
 
 当前版本：`0.1.0-alpha.7`。
 
 ## 当前结论
 
-浏览器插件可以覆盖浏览器内能力，但不能完全等价替代本地 exe：
+浏览器插件可以覆盖浏览器内能力，但不能完全等价替代本地 exe。当前判断：
 
 - 可以：浏览器通知、当前 tab 元信息、用户主动分享页面、内容脚本读取页面文本、下载记录摘要、连接 OpenClaw Gateway。
+- 适合产品化：标签页/窗口 Pattern 记忆、当前页面上下文捕获、Agent 主动建议、工作流链接一键打开。
 - 受限：浏览器关闭后不能常驻；Manifest V3 service worker 生命周期由浏览器管理。
 - 不能纯插件实现：任意本地目录扫描、系统级托盘、开机自启动、全盘文件读取。
 - 如需本地文件 scope 或系统能力，需要 Native Messaging，但这又回到“需要本地安装组件”的路线。
@@ -26,6 +29,7 @@ OpenClaw Browser Host Extension 是新的浏览器插件主线，用于替代或
 │   ├── browser-test-runbook.md
 │   ├── gateway-protocol-notes.md
 │   ├── implementation-plan.md
+│   ├── product-requirements-2026-05-15.md
 │   ├── quick-install.md
 │   ├── todo.md
 │   ├── research
@@ -101,6 +105,13 @@ Edge:
 - 连接生命周期与配对生命周期分离：paired 只表示设备已授权，online/offline 才表示 WebSocket 当前状态；断线重连不再制造重复配对体验，popup 也按“在线 / 已配对，重连中 / 等待配对”展示。
 - Gateway 协议对齐记录见 [Gateway 协议对齐记录](docs/gateway-protocol-notes.md)。
 - 0.1.0-alpha.7 增加 MV3 keepalive / 快速重连，并修正 paired 状态持久化；远端真实 Gateway 仍需继续做长时间在线验证。
+
+下一阶段产品化能力：
+
+- Pattern Memory：定时 tab/window 快照、共现关系分析、手动保存当前窗口为 Pattern、一键打开 Pattern。
+- Context Capture：用户主动把当前页、选中文本或摘要发送给 OpenClaw 记录/总结/关联。
+- OpenClaw Recap：OpenClaw 基于历史工作流和当日规划主动推送链接建议，插件展示并回传接受/忽略。
+- Agent Portal：首期只支持 OpenClaw，架构保留 Agent adapter 边界。
 
 ## 归档说明
 
