@@ -1,7 +1,7 @@
 # 浏览器插件手工测试 Runbook
 
-日期：2026-05-13
-版本：0.1.0-alpha.2
+日期：2026-05-19
+版本：0.1.0-alpha.7+
 
 ## 目标
 
@@ -18,7 +18,7 @@
 
 ## 加载插件
 
-注意：Chrome/Edge 的 `manifest.version` 必须是数字版本号，仓库使用 `version: 0.1.0` 和 `version_name: 0.1.0-alpha.2`。
+注意：Chrome/Edge 的 `manifest.version` 必须是数字版本号，仓库使用 `version: 0.1.0` 和 `version_name` 记录 alpha 版本。
 
 ## 自动化测试备注
 
@@ -75,6 +75,40 @@ Edge:
   - 第一次对某个站点使用时，浏览器会要求授予该站点访问权限。
 - 点击“下载摘要”，结果应返回最近下载元数据。
 - 点击“确认弹窗”，应弹出确认窗口，点击允许/拒绝后返回结果。
+
+### Pattern Memory 快照
+
+Pattern Memory 只读取 tab/window 元数据，不读取页面正文，不请求默认 `<all_urls>` 权限。
+
+1. 在同一个普通浏览器窗口打开两个以上 `http://` 或 `https://` 页面。
+2. 打开扩展详情页的 service worker inspect console。
+3. 执行：
+
+```js
+await chrome.runtime.sendMessage({ type: 'patternSnapshot', payload: { reason: 'manual-test' } })
+```
+
+4. 结果应包含 `tabCount`、`snapshotCount`、`patternCount`、`candidateCount`。
+5. 执行：
+
+```js
+await chrome.runtime.sendMessage({ type: 'patternState' })
+```
+
+6. 执行：
+
+```js
+await chrome.storage.local.get(['patternMemorySnapshots'])
+```
+
+7. 确认快照 tab 数据只包含 `url`、`origin`、`title`、`windowId`、`tabId`、`active`、`pinned`、`timestamp`。
+8. 在 service worker console 执行：
+
+```js
+await chrome.alarms.get('openclaw-pattern-snapshot-hourly')
+```
+
+9. 应返回已注册的 hourly alarm。等待 alarm 触发或重新执行手动快照后，确认 `snapshotCount` 增长且本地数据不会超过固定保留量。
 
 ## Gateway 测试
 

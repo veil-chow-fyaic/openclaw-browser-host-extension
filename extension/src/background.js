@@ -1,3 +1,10 @@
+import {
+  PATTERN_SNAPSHOT_ALARM,
+  ensurePatternSnapshotAlarm,
+  getPatternMemoryState,
+  savePatternSnapshot
+} from './pattern-memory.js';
+
 const DEFAULT_CONFIG = {
   gatewayUrl: '',
   token: '',
@@ -19,6 +26,8 @@ const CAPABILITIES = [
   'browser.current_tab.info',
   'browser.current_tab.extract',
   'browser.downloads.summary',
+  'browser.pattern.snapshot',
+  'browser.pattern.state',
   'user.confirm'
 ];
 
@@ -48,11 +57,19 @@ chrome.runtime.onInstalled.addListener(async () => {
   const existing = await chrome.storage.local.get(Object.keys(DEFAULT_CONFIG));
   await chrome.storage.local.set({ ...DEFAULT_CONFIG, ...existing });
   await ensureHostIdentity();
+  await ensurePatternSnapshotAlarm();
+});
+
+chrome.runtime.onStartup.addListener(() => {
+  ensurePatternSnapshotAlarm().catch((error) => setStatus({ lastError: error.message }));
 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === 'openclaw-reconnect') {
     connectGateway().catch((error) => setStatus({ lastError: error.message }));
+  }
+  if (alarm.name === PATTERN_SNAPSHOT_ALARM) {
+    savePatternSnapshot('hourly-alarm').catch((error) => setStatus({ lastError: error.message }));
   }
 });
 
@@ -68,6 +85,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 ensureHostIdentity().catch((error) => setStatus({ lastError: error.message }));
+ensurePatternSnapshotAlarm().catch((error) => setStatus({ lastError: error.message }));
 
 async function handleRuntimeMessage(message) {
   switch (message?.type) {
@@ -87,6 +105,10 @@ async function handleRuntimeMessage(message) {
       return currentPageSummary();
     case 'downloadsSummary':
       return downloadsSummary(message.payload ?? {});
+    case 'patternSnapshot':
+      return savePatternSnapshot(message.payload?.reason || 'runtime-message');
+    case 'patternState':
+      return getPatternMemoryState();
     case 'userConfirm':
       return userConfirm(message.payload ?? {});
     default:
@@ -344,6 +366,10 @@ async function executeCommand(command, args) {
       return currentPageSummary();
     case 'browser.downloads.summary':
       return downloadsSummary(args);
+    case 'browser.pattern.snapshot':
+      return savePatternSnapshot(args.reason || 'invoke');
+    case 'browser.pattern.state':
+      return getPatternMemoryState();
     case 'user.confirm':
       return userConfirm(args);
     default:
